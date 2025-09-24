@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서울소방재난본부 한강 수난사고 구조출동 현황 - 모자이크 플롯</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin: 20px 0;
+            gap: 20px;
+            background-color: white;
+        }
+        
+        .chart-wrapper {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        
+        .left-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 60px;
+        }
+        
+        .right-legend {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            margin-top: 60px;
+        }
+        
+        .vertical-scale {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .vertical-scale-bar {
+            width: 20px;
+            height: 320px;
+            border-radius: 3px;
+            position: relative;
+        }
+        
+        .vertical-scale-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
+        }
+        
+        .vertical-scale-labels span {
+            display: block;
+            line-height: 1;
+        }
+        
+        .scale-indicator {
+            position: absolute;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 2px;
+            background: #333;
+            border-radius: 1px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .vertical-scale {
+            position: relative;
+        }
+        
+        #mosaic-plot {
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 30px;
+        }
+        
+        .legend-left {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .legend-right {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .color-scale {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .scale-bar {
+            width: 200px;
+            height: 20px;
+            border-radius: 3px;
+            position: relative;
+        }
+        
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 200px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .axis-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: #333;
+        }
+        
+        .tick text {
+            font-size: 12px;
+            fill: #666;
+        }
+        
+        .grid-line {
+            stroke: #e0e0e0;
+            stroke-width: 1;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>서울소방재난본부 한강 수난사고 구조출동 현황 (2023)</h1>
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <svg id="mosaic-plot" width="900" height="600" style="background-color: white;"></svg>
+                <div class="right-legend">
+                    <div class="vertical-scale">
+                        <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">출동 시간 <br>(시:분)</div>
+                        <div class="vertical-scale-labels">
+                            <span id="max-dispatch-time">최대시간</span>                           
+                        </div> 
+                        <div class="vertical-scale-bar" id="dispatch-scale-bar" style="background: linear-gradient(to bottom, rgba(220, 11, 90, 0.8), rgba(220, 11, 90, 0));"></div>
+                        
+                        <div class="vertical-scale-labels">                        
+                            <span>00:00</span> 
+                        </div>
+                        <div id="dispatch-indicator" class="scale-indicator" style="display: none;"></div>
+                    </div>
+                    <div class="vertical-scale">
+                        <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">구조 시간 <br>(시:분)</div>
+                        <div class="vertical-scale-labels">
+                            <span id="max-rescue-time">최대시간</span>
+                            
+                        </div>
+                        <div class="vertical-scale-bar" id="rescue-scale-bar" style="background: linear-gradient(to bottom, rgba(220, 11, 90, 0.8), rgba(220, 11, 90, 0));"></div>
+                        <div class="vertical-scale-labels">
+                            <span>00:00</span> 
+                        </div>
+                        <div id="rescue-indicator" class="scale-indicator" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // CSV 파일을 읽어서 데이터 처리
+        d3.csv("수난사고_구조출동_2023_한강_수정본.csv").then(function(data) {
+            // 시간을 분으로 변환하는 함수
+            function timeToMinutes(timeStr) {
+                if (!timeStr || timeStr === '0:00') return 0;
+                const parts = timeStr.split(':');
+                return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            }
+            
+            // 계절과 사고원인명의 고유값들
+            const seasons = ['봄', '여름', '가을', '겨울'];
+            const causes = ['수색', '익수', '고립', '사체인양', '침몰', '침수'];
+
+            // 각 계절-사고원인 조합별로 데이터 집계
+            const groupedData = {};
+            seasons.forEach(season => {
+                groupedData[season] = {};
+                causes.forEach(cause => {
+                    groupedData[season][cause] = {
+                        count: 0,
+                        totalDispatchTime: 0,
+                        totalRescueTime: 0,
+                        avgDispatchTime: 0,
+                        avgRescueTime: 0
+                    };
+                });
+            });
+
+            // 데이터 집계
+            data.forEach(d => {
+                if (d.계절명 && d.사고원인명) {
+                    const season = d.계절명.trim();
+                    const cause = d.사고원인명.trim();
+                    const dispatchTime = timeToMinutes(d.출동);
+                    const rescueTime = timeToMinutes(d.구조);
+                    
+                    if (groupedData[season] && groupedData[season][cause]) {
+                        groupedData[season][cause].count++;
+                        groupedData[season][cause].totalDispatchTime += dispatchTime;
+                        groupedData[season][cause].totalRescueTime += rescueTime;
+                    }
+                }
+            });
+
+            // 평균 계산
+            Object.keys(groupedData).forEach(season => {
+                Object.keys(groupedData[season]).forEach(cause => {
+                    const data = groupedData[season][cause];
+                    if (data.count > 0) {
+                        data.avgDispatchTime = data.totalDispatchTime / data.count;
+                        data.avgRescueTime = data.totalRescueTime / data.count;
+                    }
+                });
+            });
+
+            // SVG 설정
+            const margin = { top: 60, right: 80, bottom: 100, left: 100 };
+            const width = 900 - margin.left - margin.right;
+            const height = 600 - margin.top - margin.bottom;
+
+            const svg = d3.select("#mosaic-plot")
+                .attr("width", 900)
+                .attr("height", 600);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // 스케일 설정
+            const xScale = d3.scaleBand()
+                .domain(causes)
+                .range([0, width])
+                .padding(0.1);
+
+            const yScale = d3.scaleBand()
+                .domain(seasons)
+                .range([0, height])
+                .padding(0.1);
+
+            // 실제 데이터에서 최대 출동시간 계산
+            const maxDispatchTime = d3.max(Object.values(groupedData).flatMap(season => 
+                Object.values(season).map(data => data.avgDispatchTime)
+            ));
+            
+            // 색상 스케일 (출동 시간용) - 투명도로 시간 표현
+            const dispatchColorScale = d3.scaleLinear()
+                .domain([0, maxDispatchTime]) // 0분 - 최대 출동시간
+                .range([0, 0.8]); // 투명도: 0분=0, 최대시간=0.8
+
+            // 실제 데이터에서 최대 구조시간 계산
+            const maxRescueTime = d3.max(Object.values(groupedData).flatMap(season => 
+                Object.values(season).map(data => data.avgRescueTime)
+            ));
+            
+            // 색상 스케일 (구조 시간용) - 투명도로 시간 표현
+            const rescueColorScale = d3.scaleLinear()
+                .domain([0, maxRescueTime]) // 0분 - 최대 구조시간
+                .range([0, 0.8]); // 투명도: 0분=0, 최대시간=0.8
+
+            // 원 크기 스케일 (사건수에 따라) - 드라마틱하게
+            const radiusScale = d3.scaleSqrt()
+                .domain([0, d3.max(Object.values(groupedData).flatMap(season => 
+                    Object.values(season).map(data => data.count)
+                ))])
+                .range([8, 80]); // 최소 8px(지름 16px), 최대 80px(지름 160px)
+
+            // 모자이크 플롯 그리기 (반원형)
+            seasons.forEach(season => {
+                causes.forEach(cause => {
+                    const data = groupedData[season][cause];
+                    if (data.count > 0) {
+                        const x = xScale(cause) + xScale.bandwidth() / 2;
+                        const y = yScale(season) + yScale.bandwidth() / 2;
+                        const radius = radiusScale(data.count);
+
+                        // 고유한 ID 생성
+                        const uniqueId = `${season.replace(/\s+/g, '')}-${cause.replace(/\s+/g, '')}-${x}-${y}`;
+                        
+                        // 클리핑 패스로 반원 만들기 (확대 고려)
+                        const clipLeft = g.append("defs").append("clipPath").attr("id", `clip-left-${uniqueId}`);
+                        clipLeft.append("rect")
+                            .attr("x", x - 120)
+                            .attr("y", y - 120)
+                            .attr("width", 120)
+                            .attr("height", 240);
+
+                        const clipRight = g.append("defs").append("clipPath").attr("id", `clip-right-${uniqueId}`);
+                        clipRight.append("rect")
+                            .attr("x", x)
+                            .attr("y", y - 120)
+                            .attr("width", 120)
+                            .attr("height", 240);
+
+                        // 출동 시간을 나타내는 원 (왼쪽 절반)
+                        const dispatchCircle = g.append("circle")
+                            .attr("cx", x)
+                            .attr("cy", y)
+                            .attr("r", radius)
+                            .attr("fill", "#DC0B5A")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 2)
+                            .attr("opacity", dispatchColorScale(data.avgDispatchTime))
+                            .attr("clip-path", `url(#clip-left-${uniqueId})`)
+                            .attr("class", `circle-${uniqueId}`);
+
+                        // 구조 시간을 나타내는 원 (오른쪽 절반)
+                        const rescueCircle = g.append("circle")
+                            .attr("cx", x)
+                            .attr("cy", y)
+                            .attr("r", radius)
+                            .attr("fill", "#DC0B5A")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 2)
+                            .attr("opacity", rescueColorScale(data.avgRescueTime))
+                            .attr("clip-path", `url(#clip-right-${uniqueId})`)
+                            .attr("class", `circle-${uniqueId}`);
+
+                        // 텍스트 요소를 변수로 저장
+                        let hoverText1, hoverText2, hoverText3, hoverText4;
+                        let isHovered = false;
+                        
+                        // 마우스 이벤트를 간단하게 처리
+                        dispatchCircle.on("mouseover", function(event) {
+                            if (isHovered) return;
+                            isHovered = true;
+                            
+                            // 원 확대 (모든 원 동일한 크기) - 부드러운 애니메이션
+                            dispatchCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", 100)
+                                .attr("stroke-width", 3);
+                            rescueCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", 100)
+                                .attr("stroke-width", 3);
+                            
+                            // 텍스트 표시
+                            hoverText1 = g.append("text")
+                                .attr("x", x)
+                                .attr("y", y - 15)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "12px")
+                                .attr("font-weight", "bold")
+                                .attr("fill", "#333")
+                                .text(`${season} - ${cause}`);
+                            
+                            hoverText2 = g.append("text")
+                                .attr("x", x)
+                                .attr("y", y - 5)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "10px")
+                                .attr("fill", "#666")
+                                .text(`${data.count}건`);
+                            
+                            hoverText3 = g.append("text")
+                                .attr("x", x - 25)
+                                .attr("y", y + 10)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "9px")
+                                .attr("fill", "#666")
+                                .text(`출동: ${Math.floor(data.avgDispatchTime / 60)}:${String(Math.floor(data.avgDispatchTime % 60)).padStart(2, '0')}`);
+                            
+                            hoverText4 = g.append("text")
+                                .attr("x", x + 25)
+                                .attr("y", y + 10)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "9px")
+                                .attr("fill", "#666")
+                                .text(`구조: ${Math.floor(data.avgRescueTime / 60)}:${String(Math.floor(data.avgRescueTime % 60)).padStart(2, '0')}`);
+                        });
+                        
+                        rescueCircle.on("mouseover", function(event) {
+                            if (isHovered) return;
+                            isHovered = true;
+                            
+                            // 원 확대 (모든 원 동일한 크기) - 부드러운 애니메이션
+                            dispatchCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", 100)
+                                .attr("stroke-width", 3);
+                            rescueCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", 100)
+                                .attr("stroke-width", 3);
+                            
+                            // 텍스트 표시 (자연스러운 애니메이션)
+                            hoverText1 = g.append("text")
+                                .attr("x", x)
+                                .attr("y", y - 15)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "12px")
+                                .attr("font-weight", "bold")
+                                .attr("fill", "#333")
+                                .attr("opacity", 0)
+                                .text(`${season} - ${cause}`)
+                                .transition()
+                                .delay(150)
+                                .duration(200)
+                                .attr("opacity", 1);
+                            
+                            hoverText2 = g.append("text")
+                                .attr("x", x)
+                                .attr("y", y - 5)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "10px")
+                                .attr("fill", "#666")
+                                .attr("opacity", 0)
+                                .text(`${data.count}건`)
+                                .transition()
+                                .delay(200)
+                                .duration(200)
+                                .attr("opacity", 1);
+                            
+                            hoverText3 = g.append("text")
+                                .attr("x", x - 25)
+                                .attr("y", y + 10)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "9px")
+                                .attr("fill", "#666")
+                                .attr("opacity", 0)
+                                .text(`출동: ${Math.floor(data.avgDispatchTime / 60)}:${String(Math.floor(data.avgDispatchTime % 60)).padStart(2, '0')}`)
+                                .transition()
+                                .delay(250)
+                                .duration(200)
+                                .attr("opacity", 1);
+                            
+                            hoverText4 = g.append("text")
+                                .attr("x", x + 25)
+                                .attr("y", y + 10)
+                                .attr("text-anchor", "middle")
+                                .attr("font-size", "9px")
+                                .attr("fill", "#666")
+                                .attr("opacity", 0)
+                                .text(`구조: ${Math.floor(data.avgRescueTime / 60)}:${String(Math.floor(data.avgRescueTime % 60)).padStart(2, '0')}`)
+                                .transition()
+                                .delay(300)
+                                .duration(200)
+                                .attr("opacity", 1);
+                        });
+                        
+                        dispatchCircle.on("mouseout", function() {
+                            if (!isHovered) return;
+                            isHovered = false;
+                            
+                            // 원 복원 - 부드러운 애니메이션
+                            dispatchCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", radius)
+                                .attr("stroke-width", 2);
+                            rescueCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", radius)
+                                .attr("stroke-width", 2);
+                            
+                            // 텍스트 강제 제거 (다중 방법)
+                            if (hoverText1) {
+                                hoverText1.remove();
+                                hoverText1 = null;
+                            }
+                            if (hoverText2) {
+                                hoverText2.remove();
+                                hoverText2 = null;
+                            }
+                            if (hoverText3) {
+                                hoverText3.remove();
+                                hoverText3 = null;
+                            }
+                            if (hoverText4) {
+                                hoverText4.remove();
+                                hoverText4 = null;
+                            }
+                            
+                            // 추가 안전장치: 호버 텍스트만 제거 (축 레이블 제외)
+                            d3.selectAll(`text`).filter(function() {
+                                const text = d3.select(this);
+                                const textContent = text.text();
+                                // 축 레이블이 아닌 호버 텍스트만 제거
+                                return (textContent.includes(season) && textContent.includes(cause)) || 
+                                       textContent.includes('건') ||
+                                       (textContent.includes('출동:') || textContent.includes('구조:'));
+                            }).remove();
+                            
+                            // 강제로 모든 호버 관련 텍스트 제거
+                            d3.selectAll('text').each(function() {
+                                const text = d3.select(this);
+                                const textContent = text.text();
+                                if (textContent.includes('출동:') || textContent.includes('구조:') || 
+                                    textContent.includes('건') || 
+                                    (textContent.includes(season) && textContent.includes(cause))) {
+                                    text.remove();
+                                }
+                            });
+                        });
+                        
+                        rescueCircle.on("mouseout", function() {
+                            if (!isHovered) return;
+                            isHovered = false;
+                            
+                            // 원 복원 - 부드러운 애니메이션
+                            dispatchCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", radius)
+                                .attr("stroke-width", 2);
+                            rescueCircle
+                                .transition()
+                                .duration(300)
+                                .attr("r", radius)
+                                .attr("stroke-width", 2);
+                            
+                            // 텍스트 강제 제거 (다중 방법)
+                            if (hoverText1) {
+                                hoverText1.remove();
+                                hoverText1 = null;
+                            }
+                            if (hoverText2) {
+                                hoverText2.remove();
+                                hoverText2 = null;
+                            }
+                            if (hoverText3) {
+                                hoverText3.remove();
+                                hoverText3 = null;
+                            }
+                            if (hoverText4) {
+                                hoverText4.remove();
+                                hoverText4 = null;
+                            }
+                            
+                            // 추가 안전장치: 호버 텍스트만 제거 (축 레이블 제외)
+                            d3.selectAll(`text`).filter(function() {
+                                const text = d3.select(this);
+                                const textContent = text.text();
+                                // 축 레이블이 아닌 호버 텍스트만 제거
+                                return (textContent.includes(season) && textContent.includes(cause)) || 
+                                       textContent.includes('건') ||
+                                       (textContent.includes('출동:') || textContent.includes('구조:'));
+                            }).remove();
+                            
+                            // 강제로 모든 호버 관련 텍스트 제거
+                            d3.selectAll('text').each(function() {
+                                const text = d3.select(this);
+                                const textContent = text.text();
+                                if (textContent.includes('출동:') || textContent.includes('구조:') || 
+                                    textContent.includes('건') || 
+                                    (textContent.includes(season) && textContent.includes(cause))) {
+                                    text.remove();
+                                }
+                            });
+                        });
+
+                    }
+                });
+            });
+
+            // X축 (사고원인명)
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .attr("text-anchor", "end")
+                .attr("dx", "-1em")
+                .attr("dy", "1em");
+
+            // Y축 (계절)
+            g.append("g")
+    .attr("transform", "translate(-20, 0)")  // 왼쪽으로 20px 이동
+    .call(d3.axisLeft(yScale));
+
+            // 축 레이블
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left / 2-20)
+                .attr("x", 0 - (height / 2))
+                .attr("text-anchor", "middle")
+                .text("계절");
+
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", `translate(${width / 2}, ${height + margin.bottom / 2})`)
+                .attr("text-anchor", "middle")
+                .attr("y", 0 - margin.left / 2 + 90)  // 더 위로 이동                
+                .text("사고원인명");
+
+            // 제목 추가
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("x", width / 2)
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "16px")
+            
+            // 최대 시간을 HTML에 표시
+            document.getElementById('max-dispatch-time').textContent = 
+                Math.floor(maxDispatchTime / 60) + ':' + String(Math.floor(maxDispatchTime % 60)).padStart(2, '0');
+            document.getElementById('max-rescue-time').textContent = 
+                Math.floor(maxRescueTime / 60) + ':' + String(Math.floor(maxRescueTime % 60)).padStart(2, '0');
+
+        }).catch(function(error) {
+            console.error("CSV 파일을 읽는 중 오류가 발생했습니다:", error);
+        });
+    </script>
+</body>
+</html>
